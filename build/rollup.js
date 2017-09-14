@@ -4,9 +4,11 @@ var babel = require('rollup-plugin-babel');
 var uglify = require('./uglify');
 var pkg = require('../package.json');
 
+var name = pkg.name.replace(/^@[^/]+\//, '');
+
 var banner =
   '/*!\n' +
-  ' * ' + pkg.name + ' v' + pkg.version + '\n' +
+  ' * ' + name + ' v' + pkg.version + '\n' +
   ' * (c) 2016-' + new Date().getFullYear() + ' ' + pkg.author.name + '\n' +
   ' * Released under the ' + pkg.license + ' license.\n' +
   ' */'
@@ -42,7 +44,7 @@ rollup.rollup({
   bundle.generate({
     format: 'umd',
     file: pkg.browser,
-    name: pkg.name,
+    name,
     banner
   }).then(function(output){
     fs.writeFile(pkg.browser, output.code);
