@@ -1,58 +1,57 @@
-var fs = require('fs');
-var rollup = require('rollup');
-var babel = require('rollup-plugin-babel');
-var uglify = require('./uglify');
-var pkg = require('../package.json');
+const fs = require('fs');
+const rollup = require('rollup');
+const babel = require('rollup-plugin-babel');
+const commonjs = require('rollup-plugin-commonjs');
+const resolve = require('rollup-plugin-node-resolve');
+const uglify = require('uglify-js');
+const pkg = require('../package.json');
 
-var name = pkg.name.replace(/^@[^/]+\//, '');
+const banner = `
+  /*!
+   * ${pkg.name} v${pkg.version}
+   * (c) ${new Date().getFullYear()} ${pkg.author}
+   * Released under the ${pkg.license} license.
+  */
+`;
 
-var banner =
-  '/*!\n' +
-  ' * ' + name + ' v' + pkg.version + '\n' +
-  ' * (c) 2016-' + new Date().getFullYear() + ' ' + pkg.author.name + '\n' +
-  ' * Released under the ' + pkg.license + ' license.\n' +
-  ' */'
+
+const outputOptions = {
+  es: {
+    format: 'es',
+    file: pkg.module,
+    banner,
+  },
+  cjs: {
+    format: 'cjs',
+    file: pkg.main,
+    banner,
+  },
+  umd: {
+    format: 'umd',
+    file: pkg.umd,
+    name: pkg.umdName,
+    banner,
+  },
+};
 
 rollup.rollup({
   input: 'src/index.js',
   plugins: [
-    babel({
-      exclude: 'node_modules/**/*',
-      presets: [
-        ['env', { modules: false }]
-      ],
-      // plugins: ['external-helpers']
-    })
-  ]
-}).then(function(bundle){
+    babel(),
+    commonjs(),
+    resolve(),
+  ],
+}).then((bundle) => {
+  bundle.write(outputOptions.es);
+  bundle.write(outputOptions.cjs);
 
-  // Write ES module bundle
-  bundle.write({
-    format: 'es',
-    file: pkg.module,
-    banner
+  bundle.generate(outputOptions.umd).then(({ output }) => {
+    const minified = uglify.minify(output[0].code);
+
+    fs.writeFileSync(outputOptions.umd.file, output[0].code);
+    fs.writeFileSync(
+      outputOptions.umd.file.replace('.js', '.min.js'),
+      minified.code,
+    );
   });
-
-  // Write CommonJS bundle
-  bundle.write({
-    format: 'cjs',
-    file: pkg.main,
-    banner
-  });
-
-  // Write UMD bundles
-  bundle.generate({
-    format: 'umd',
-    file: pkg.browser,
-    name,
-    banner
-  }).then(function(output){
-    fs.writeFile(pkg.browser, output.code);
-    uglify(output, pkg.browser.replace('.js', '.min.js'));
-  }).catch(warn);
-
-}).catch(warn);
-
-function warn(error) {
-  console.log(error.stack);
-}
+});
